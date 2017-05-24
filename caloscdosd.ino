@@ -11,6 +11,11 @@ TinyGPS gps;
 MPU9250 accelgyro;
 I2Cdev   I2C_M;
 
+int buttonState = HIGH;
+int ledState = -1;
+long lastDebounceTime = 0;
+long debounceDelay = 1000;
+
 const int chipSelect = 4;
 char filename[16];
 
@@ -34,7 +39,7 @@ bool newData = false;
 
 bool start = 1;
 
-
+File dataFile;
 
 void setup() {
 
@@ -42,8 +47,8 @@ void setup() {
   pinMode(13, OUTPUT);
   pinMode(5, OUTPUT);
 
-//  Serial.begin(9600);
-//  while (!Serial);
+  //  Serial.begin(9600);
+  //  while (!Serial);
   delay(25);
   gpsBoard.begin(9600);
   delay(25);
@@ -53,8 +58,9 @@ void setup() {
   delay(25);
 
   if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
+    // Serial.println("Card failed, or not present");
     // don't do anything more:
+    digitalWrite(13, LOW);
     return;
   }
 
@@ -64,9 +70,9 @@ void setup() {
     n++;
     snprintf(filename, sizeof(filename), "zapis%03d.txt", n);
   }
-  File dataFile = SD.open(filename, FILE_READ);
-//  Serial.println(n);
-//  Serial.println(filename);
+  dataFile = SD.open(filename, FILE_READ);
+  //  Serial.println(n);
+  //  Serial.println(filename);
   dataFile.close();
   delay(1000);
 
@@ -92,16 +98,16 @@ void loop()
 
   if (newData == true && start == 1)
   {
-    File dataFile = SD.open(filename, FILE_WRITE);
+    dataFile = SD.open(filename, FILE_WRITE);
     if (dataFile)
     {
-//      Serial.println("REJESTRATOR v1.0");
-//      Serial.println("by BOGON");
-//      Serial.println();
-//      Serial.println();
-//      Serial.println("Data       Godzina      Szerokosc Dlugosc    Wysokosc SATS Przyspiezenie   Pochylenie");
-//      Serial.println("                        (deg)     (deg)      (m)           X, Y, Z                  Przechylenie");
-//      Serial.println("----------------------------------------------------------------------------------------------------------------");
+      //      Serial.println("REJESTRATOR v1.0");
+      //      Serial.println("by BOGON");
+      //      Serial.println();
+      //      Serial.println();
+      //      Serial.println("Data       Godzina      Szerokosc Dlugosc    Wysokosc SATS Przyspiezenie   Pochylenie");
+      //      Serial.println("                        (deg)     (deg)      (m)           X, Y, Z                  Przechylenie");
+      //      Serial.println("----------------------------------------------------------------------------------------------------------------");
 
 
       dataFile.println("REJESTRATOR v1.0");
@@ -120,7 +126,7 @@ void loop()
   if (newData == true)
   {
     digitalWrite(5, HIGH);
-    File dataFile = SD.open(filename, FILE_WRITE);
+    dataFile = SD.open(filename, FILE_WRITE);
     if (dataFile)
     {
 
@@ -129,14 +135,15 @@ void loop()
 
       print_date(gps);
       dataFile.print("\t");
-//      Serial.print("\t");
+      dataFile.print('\t');
+      //      Serial.print("\t");
       gps.f_get_position(&flat, &flon);
 
       print_float(flat, TinyGPS::GPS_INVALID_F_ANGLE, 10, 6);
       print_float(flon, TinyGPS::GPS_INVALID_F_ANGLE, 11, 6);
       print_float(gps.f_altitude(), TinyGPS::GPS_INVALID_F_ALTITUDE, 7, 2);
       dataFile.print("  ");
-//      Serial.print("  ");
+      //      Serial.print("  ");
       print_int(gps.satellites(), TinyGPS::GPS_INVALID_SATELLITES, 5);
 
       dataFile.print(Axyz[0]);
@@ -144,17 +151,18 @@ void loop()
       dataFile.print(Axyz[1]);
       dataFile.print(",");
       dataFile.print(Axyz[2]);
-//      Serial.print(Axyz[0]);
-//      Serial.print(",");
-//      Serial.print(Axyz[1]);
-//      Serial.print(",");
-//      Serial.print(Axyz[2]);
+      //      Serial.print(Axyz[0]);
+      //      Serial.print(",");
+      //      Serial.print(Axyz[1]);
+      //      Serial.print(",");
+      //      Serial.print(Axyz[2]);
       dataFile.print("  ");
-//      Serial.print("  ");
+      //      Serial.print("  ");
       printRollPitch();
 
+      dataFile.print('\n');
       dataFile.println();
-//      Serial.println();
+      //      Serial.println();
       dataFile.close();
     }
   }
@@ -169,7 +177,7 @@ static void print_float(float val, float invalid, int len, int prec)
   {
     while (len-- > 1)
     {
-      File dataFile = SD.open(filename, FILE_WRITE);
+      dataFile = SD.open(filename, FILE_WRITE);
       dataFile.print('*');
       dataFile.print(' ');
       dataFile.close();
@@ -178,8 +186,8 @@ static void print_float(float val, float invalid, int len, int prec)
   }
   else
   {
-//    Serial.print(val, prec);
-    File dataFile = SD.open(filename, FILE_WRITE);
+    //    Serial.print(val, prec);
+    dataFile = SD.open(filename, FILE_WRITE);
     dataFile.print(val, prec);
     dataFile.close();
     int vi = abs((int)val);
@@ -187,8 +195,8 @@ static void print_float(float val, float invalid, int len, int prec)
     flen += vi >= 1000 ? 4 : vi >= 100 ? 3 : vi >= 10 ? 2 : 1;
     for (int i = flen; i < len; ++i)
     {
-//      Serial.print(' ');
-      File dataFile = SD.open(filename, FILE_WRITE);
+      //      Serial.print(' ');
+      dataFile = SD.open(filename, FILE_WRITE);
       dataFile.print(' ');
       dataFile.close();
     }
@@ -209,8 +217,8 @@ static void print_int(unsigned long val, unsigned long invalid, int len)
   if (len > 0)
   {
     sz[len - 1] = ' ';
-//    Serial.print(sz);
-    File dataFile = SD.open(filename, FILE_WRITE);
+    //    Serial.print(sz);
+    dataFile = SD.open(filename, FILE_WRITE);
     dataFile.print(sz);
     dataFile.close();
   }
@@ -225,19 +233,19 @@ static void print_date(TinyGPS &gps)
   gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age);
   if (age == TinyGPS::GPS_INVALID_AGE)
   {
-    File dataFile = SD.open(filename, FILE_WRITE);
+    dataFile = SD.open(filename, FILE_WRITE);
     dataFile.print("********** ******** ");
     dataFile.close();
 
- //   Serial.print("********** ******** ");
+    //   Serial.print("********** ******** ");
   }
   else
   {
     char sz[32];
     sprintf(sz, "%02d/%02d/%02d %02d:%02d:%02d ",
             day, month, year, hour + 2, minute, second);
-//    Serial.print(sz);
-    File dataFile = SD.open(filename, FILE_WRITE);
+    //    Serial.print(sz);
+    dataFile = SD.open(filename, FILE_WRITE);
     dataFile.print(sz);
     dataFile.close();
 
@@ -265,14 +273,13 @@ void printRollPitch(void)
   rrr  = (atan2(-fYg, fZg) * 180.0) / M_PI;
   ppp = (atan2(fXg, sqrt(fYg * fYg + fZg * fZg)) * 180.0) / M_PI;
 
-//  Serial.print(ppp = ppp + 4.5);
-//  Serial.print("  ");
-//  Serial.print(rrr = rrr + 0.6);
-  File dataFile = SD.open(filename, FILE_WRITE);
+  //  Serial.print(ppp = ppp + 4.5);
+  //  Serial.print("  ");
+  //  Serial.print(rrr = rrr + 0.6);
+  dataFile = SD.open(filename, FILE_WRITE);
   dataFile.print(ppp = ppp + 4.5);
   dataFile.print("  ");
   dataFile.print(rrr = rrr + 0.6);
   dataFile.close();
 
 }
-
